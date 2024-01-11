@@ -1,342 +1,187 @@
+import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-import javax.swing.*;
+import java.util.ArrayList;
+import java.util.Random;
+import java.util.ArrayList;
+import java.util.List;
 
-public class BrickBreak {
+public class BrickBreak extends JFrame {
 
-	// describes two types of particles
-	public enum Type {HOT, COLD};
+    private int ballX = 500;
+    private int ballY = 500;
+    private int ballSpeedX = 4;
+    private int ballSpeedY = 4;
 
-	// the rate at which the speed affects movement
-	double delta = 0.01;
+    private int numBricks = 19;
+    private int rowBricks = 10;
 
-	// define background colors
-	Color lightRed = new Color(255, 204, 203);
-	Color lightBlue = new Color(0, 195, 227);
+    private int paddleX = 150;
 
-	// internal state of the particles
-	Ball[] balls;
-	int ballCount = 1;
+    private List<Brick> bricks;
 
-	// java swing objects
-	JFrame frame;
-	Game gamePanel;
-	JPanel controlPanel;
-	JPanel temperaturePanel;
+    public BrickBreak() {
+        setTitle("Brick Break!!");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-	// dimensions
-	int frameWidth = 900;
-	int frameHeight = 720;
+		setSize(1000, 700);
+        setResizable(false);
 
-	int gameWidth = frameWidth;
-	int gameHeight = 635;
+        bricks = createBricks();
 
-	int wallWidth = 30;
+        JPanel panel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                g.setColor(Color.WHITE);
+                g.fillRect(0, 0, getWidth(), getHeight());
+                g.setColor(Color.BLUE);
+                g.fillOval(ballX, ballY, 20, 20);
+                g.setColor(Color.BLACK);
+                g.fillRect(paddleX, getHeight() - 20, 80, 10);
 
-	int ballRadius = 10;
+                for (Brick brick : bricks) {
+                    if (brick.isVisible()) {
+                        g.setColor(Color.RED);
+                        g.fillRect(brick.getX(), brick.getY(), brick.getWidth(), brick.getHeight());
+                    }
+                }
+            }
+        };
 
-	// maximum amount of particles allowed
-	int maxParticles = 10000;
+        panel.addMouseMotionListener(new MouseAdapter() {
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                paddleX = e.getX() - 40; // Center the paddle under the cursor
+                panel.repaint();
+            }
+        });
 
-	// ball speed
-	int speed = 1500;
+        Timer timer = new Timer(10, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                moveBall();
+                checkPaddleCollision();
+                checkBrickCollision();
+                checkBottomCollision();
 
-	// represents whether door is open or not
-	boolean doorOpen = false;
+                panel.repaint();
+            }
+        });
+        timer.start();
 
-	/**
-	 * main - creates an instance of BrickBreak game object
-	 * 
-	 * @param args
-	 */
-	public static void main(String[] args) {
-		new BrickBreak();
-	}
+        add(panel);
 
-	/**
-	 * BrickBreak constructor
-	 * 
-	 * here lies the main logic of the game. A mouse listener listens to the mouse click
-	 * and release and opens or closes the door accordingly. Buttons for adding particles
-	 * and reset are added to control panel. Particles are initialized, two each for hot and cold.
-	 * Below control panel game panel is created. Timer is created to handle particle animation
-	 * and frame refresh. The frame is set to visible after it is ready.
-	 */
-	public BrickBreak() {
+        setLocationRelativeTo(null); // Center the window
+        setVisible(true);
+		
+    }
 
-		// create the main frame
-		frame = new JFrame();
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setTitle("BrickBreak");
-		frame.setBackground(Color.white);
-		frame.setLayout(new BorderLayout());
-		frame.setResizable(false);
+    private void moveBall() {
+        ballX += ballSpeedX;
+        ballY += ballSpeedY;
 
-		// listen for door close or open
-		frame.addMouseListener(new MouseAdapter() {
-			public void mousePressed(MouseEvent e) {
-				doorOpen = true;
-			} 
-
-			public void mouseReleased(MouseEvent e) {
-				doorOpen = false;
-			} 
-		});
-
-		// create and add the control panel
-		controlPanel = new JPanel();
-
-		JButton addButton = new JButton("Add Particles");
-        addButton.setBounds(50, 50, 50, 50);
-        addButton.addMouseListener(new AddMouseListener("Add Particle"));
-        addButton.addFocusListener(new MyFocusListener("Add Particle"));
-        controlPanel.add(addButton);
-
-        JButton resetButton = new JButton("Reset");
-        resetButton.setBounds(50, 50, 50, 50);
-        resetButton.addMouseListener(new ResetMouseListener("Reset"));
-        resetButton.addFocusListener(new MyFocusListener("Reset"));
-		controlPanel.add(resetButton);
-
-		frame.add(controlPanel, BorderLayout.NORTH);
-
-		// initializing the balls
-
-		balls = new Ball[ballCount];
-
-		// Create the play area
-		gamePanel = new Game();
-		frame.add(gamePanel, BorderLayout.CENTER);
-
-		// Create a timer
-		Timer tick = new Timer(100, new Animator());
-		tick.start();
-
-		// make visible 
-		frame.setSize(frameWidth, frameHeight);
-		frame.setVisible(true);
-	}
-
-	/**
-	 * Ball - ball that bounces and breaks bricks
-	 */
-
-	public class Ball {
-		double x, y, vx, vy;
-		boolean isActive;
-
-		/**
-		 * constructor - sets values to initial values
-		 */
-		public Ball() {
-			x = (int) (Math.random() * (gameWidth / 2) * 0.8);
-			y = (int) (Math.random() * (gameHeight / 4) + gameHeight / 2);
-			vx = speed;
-			vy = speed;
-			isActive = true;
-		}
-
-		/**
-		 * moves the ball based on delta rate and accounts for collisions
-		 * 
-		 * @param delta
-		 */
-		public void move(double delta) {
-			x += vx * delta;
-			y += vy * delta;
-			stayOnScreen();
-			handlePlatform();
-			handleBrick();
-		}
-
-		/**
-		 * handles collision with screen borders
-		 */
-		public void stayOnScreen() {
-			// Check bounces off each edge of screen
-			if (x < 0)
-				vx *= -1;
-			if (x > gameWidth)
-				vx *= -1;
-			if (y < 0)
-				vy *= -1;
-			if (y > gameHeight)
-				outOfBounds();
-		}
-
-		/**
-		 * handles collision with player controlled platform
-		 */
-		public void handlePlatform() {
-
-		}
-
-		/**
-		 * handles collision with brick objects
-		 */
-		public void handleBrick() {
-			
-		}
-
-		/**
-		 * handles ball falling out of game from bottom 
-		 */
-		public void outOfBounds() {
-			isActive = false;
-		}
-
-		public boolean isActive() {return isActive;}
-
-		/**
-		 * the balls draw themselves
-		 * 
-		 * @param g graphics
-		 */
-		public void draw(Graphics g) {
-			g.setColor(Color.black);
-			g.fillOval((int) (x - ballRadius / 2), (int) (y - ballRadius / 2), ballRadius, ballRadius);
-		}
-	}
-
-	/**
-	 * the game panel 
-	 */
-	public class Game extends JPanel {
-
-		/**
-		 * paints the game panel, balls, bricks, platform
-		 * 
-		 * @param g graphics to be drawn on
-		 */
-		@Override
-		public void paintComponent(Graphics g) {
-			for (int i = 0; i < ballCount; i++) {
-				balls[i].draw(g);
-			}
-		}
-	}
-
-	/**
-	 * the controller - handles game refresh
-	 */
-	public class Animator implements ActionListener {
-
-		/**
-		 * handles the game loop, every tick of the timer an action is triggerd and the 
-		 * game state is updated
-		 * 
-		 * @param e the tick event
-		 */
-		@Override
-		public void actionPerformed(ActionEvent e) {
-			for (int i = 0; i < ballCount; i++) {
-				balls[i].move(delta);
-			}
-			gamePanel.repaint();
-		}
-	}
-
-	/**
-	 * mouse focus listener
-	 */
-	class MyFocusListener implements FocusListener {
-        private String id;
-
-		/**
-		 * constructor
-		 * 
-		 * @param id the id of the listener
-		 */
-        public MyFocusListener(String id) {
-            this.id = id;
+        if (ballX <= 0 || ballX >= getWidth() - 20) {
+            ballSpeedX = -ballSpeedX;
         }
 
-		/**
-		 * mouse focus gained
-		 * 
-		 * @param e mouse event
-		 */
-        public void focusGained(FocusEvent e) {
-            System.out.println(id + ": Focus Gained");
-        }
-
-		/**
-		 * focus lost
-		 * 
-		 * @parm e mouse event
-		 */
-        public void focusLost(FocusEvent e) {
-            System.out.println(id + ": Focus Lost");
+        if (ballY <= 0) {
+            ballSpeedY = -ballSpeedY;
         }
     }
 
-	/**
-	 * handles add particle events
-	 */
-    class AddMouseListener extends MouseAdapter {
-        private String id;
-
-		/**
-		 * constructor
-		 * 
-		 * @param id the id of the listener
-		 */
-        public AddMouseListener(String id) {
-            this.id = id;
+    private void checkPaddleCollision() {
+        if (ballY >= getHeight() - 50 && ballX >= paddleX && ballX <= paddleX + 80) {
+            ballSpeedY = -ballSpeedY;
         }
+    }
 
-		/**
-		 * mouse clicked on the button to add particles, add particles
-		 * 
-		 * @param e mouse event
-		 */
-        @Override
-        public void mouseClicked(MouseEvent e) {
-            System.out.println(id + ": Mouse Clicked");
+    private void checkBrickCollision() {
+        for (Brick brick : bricks) {
+			if (brick.isVisible()) {
 
-			//if (hotCount + coldCount < maxParticles) {
-			//hotParticles[hotCount++] = new Particle(Type.HOT, Type.HOT);
-			//hotParticles[hotCount++] = new Particle(Type.HOT, Type.COLD);
-			//coldParticles[coldCount++] = new Particle(Type.COLD, Type.HOT);
-			//coldParticles[coldCount++] = new Particle(Type.COLD, Type.COLD);
+				if (ballX + 20 >= brick.getX() && ballX <= brick.getX() + brick.getWidth()
+						&& ballY + 20 >= brick.getY() && ballY <= brick.getY() + brick.getHeight()) {
+					ballSpeedY = -ballSpeedY;
+					brick.setVisible(false);
+				}
+			}
+        }
+    }
+    private void checkBottomCollision() {
+        if (ballY >= getHeight()) {
+            ballX = getWidth() / 2 - 10; // Center of the frame
+            ballY = getHeight() / 2 + 50;
+            randomizeDirection();
+        }
+    }
 
-		} // if
+    private void randomizeDirection() {
+        Random rand = new Random();
+        ballSpeedX = rand.nextBoolean() ? ballSpeedX : -ballSpeedX;
+        ballSpeedY = rand.nextBoolean() ? ballSpeedY : ballSpeedY;
     }
 
 
-	/**
-	 * handles game reset
-	 */
-    class ResetMouseListener extends MouseAdapter {
-        private String id;
+    private List<Brick> createBricks() {
+        List<Brick> brickList = new ArrayList<>();
+        int brickWidth = 40;
+        int brickHeight = 10;
 
-		/**
-		 * constructor
-		 * 
-		 * @param id the id of the listener
-		 */
-        public ResetMouseListener(String id) {
-            this.id = id;
+        for (int j = 0; j < rowBricks; j++) {
+
+            for (int i = 0; i < numBricks; i++) {
+                int brickX = i * (brickWidth + 10) + 30; // Spacing between bricks
+                int brickY = 30 * (j + 1);
+                brickList.add(new Brick(brickX, brickY, brickWidth, brickHeight));
+            }
+
         }
 
-		/**
-		 * resets the game state
-		 * 
-		 * @param e mouse event
-		 */
-        @Override
-        public void mouseClicked(MouseEvent e) {
-            System.out.println(id + ": Mouse Clicked");
+        return brickList;
+    }
 
-			//hotCount = 0;
-			//coldCount = 0;
+    private static class Brick {
+        private int x;
+        private int y;
+        private int width;
+        private int height;
+        private boolean visible;
 
-			//hotParticles = new Particle[maxParticles];
-			//coldParticles = new Particle[maxParticles];
-			//hotParticles[hotCount++] = new Particle(Type.HOT, Type.HOT);
-			//hotParticles[hotCount++] = new Particle(Type.HOT, Type.COLD);
-			//coldParticles[coldCount++] = new Particle(Type.COLD, Type.HOT);
-			//coldParticles[coldCount++] = new Particle(Type.COLD, Type.COLD);
+        public Brick(int x, int y, int width, int height) {
+            this.x = x;
+            this.y = y;
+            this.width = width;
+            this.height = height;
+            this.visible = true;
         }
+
+        public int getX() {
+            return x;
+        }
+
+        public int getY() {
+            return y;
+        }
+
+        public int getWidth() {
+            return width;
+        }
+
+        public int getHeight() {
+            return height;
+        }
+
+        public boolean isVisible() {
+            return visible;
+        }
+
+        public void setVisible(boolean visible) {
+            this.visible = visible;
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> new BrickBreak());
     }
 }
