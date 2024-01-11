@@ -193,7 +193,7 @@ public class BrickBreak {
 		 * @param g graphics
 		 */
 		public void draw(Graphics g) {
-			g.setColor(Color.red);
+			g.setColor(Color.black);
 			g.fillOval((int) (x - ballRadius / 2), (int) (y - ballRadius / 2), ballRadius, ballRadius);
 		}
 	}
