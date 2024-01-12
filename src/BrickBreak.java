@@ -19,12 +19,14 @@ public class BrickBreak extends JFrame {
     // brick representation
     private int numBricks = 19;
     private int rowBricks = 10;
+    private List<Brick> bricks;
 
     // paddle representation
     private int paddleX = 150;
 
-    private List<Brick> bricks;
-
+    /**
+     * default constructor - creates game, swing window, draws components
+     */
     public BrickBreak() {
         setTitle("Brick Break!!");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -54,6 +56,7 @@ public class BrickBreak extends JFrame {
             }
         };
 
+        // mouse action listener for paddle controller
         panel.addMouseMotionListener(new MouseAdapter() {
             @Override
             public void mouseMoved(MouseEvent e) {
@@ -62,6 +65,7 @@ public class BrickBreak extends JFrame {
             }
         });
 
+        // event producing timer
         Timer timer = new Timer(10, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -82,6 +86,9 @@ public class BrickBreak extends JFrame {
 		
     }
 
+    /**
+     * moveBall - moves ball and checks for collision with the boundaries of the window
+     */
     private void moveBall() {
         ballX += ballSpeedX;
         ballY += ballSpeedY;
@@ -95,12 +102,21 @@ public class BrickBreak extends JFrame {
         }
     }
 
+    /**
+     * checkPaddleCollision - checks collision with paddle, speed in x direction is preserved
+     * while the speed in the y direction is flipped for bounceback
+     */
     private void checkPaddleCollision() {
         if (ballY >= getHeight() - 50 && ballX >= paddleX && ballX <= paddleX + 80) {
             ballSpeedY = -ballSpeedY;
         }
     }
 
+    /**
+     * checkBrickCollision - checks collision with bricks. ball bounces off of visible bricks
+     * by reversing sign of both x and y speed, bricks disappear with false visibility after
+     * collision
+     */
     private void checkBrickCollision() {
         for (Brick brick : bricks) {
 			if (brick.isVisible()) {
@@ -113,6 +129,12 @@ public class BrickBreak extends JFrame {
 			}
         }
     }
+
+    /**
+     * checkBottomCollision - the ball does not bounce from the bottom border, instead it
+     * disappears aka "dies". After death the ball is regenerated at roughly the center of
+     * the screen
+     */
     private void checkBottomCollision() {
         if (ballY >= getHeight()) {
             ballX = getWidth() / 2 - 10; // Center of the frame
@@ -121,13 +143,20 @@ public class BrickBreak extends JFrame {
         }
     }
 
+    /**
+     * randomizeDirection - the direction of the ball is randomized after regeneration
+     */
     private void randomizeDirection() {
         Random rand = new Random();
         ballSpeedX = rand.nextBoolean() ? ballSpeedX : -ballSpeedX;
         ballSpeedY = rand.nextBoolean() ? ballSpeedY : ballSpeedY;
     }
 
-
+    /**
+     * createBricks - creates all bricks
+     * 
+     * @return brickList - the collection of brick objects
+     */
     private List<Brick> createBricks() {
         List<Brick> brickList = new ArrayList<>();
         int brickWidth = 40;
@@ -146,6 +175,9 @@ public class BrickBreak extends JFrame {
         return brickList;
     }
 
+    /**
+     * Brick - brick object
+     */
     private static class Brick {
         private int x;
         private int y;
@@ -153,6 +185,14 @@ public class BrickBreak extends JFrame {
         private int height;
         private boolean visible;
 
+        /**
+         * Constructor - bricks are visible by default
+         * 
+         * @param x x coordinate of the brick
+         * @param y y coordinate of the brick
+         * @param width width of brick
+         * @param height height of brick
+         */
         public Brick(int x, int y, int width, int height) {
             this.x = x;
             this.y = y;
@@ -186,6 +226,9 @@ public class BrickBreak extends JFrame {
         }
     }
 
+    /**
+     * main function - creates a new instantiation of the game
+     */
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new BrickBreak());
     }
