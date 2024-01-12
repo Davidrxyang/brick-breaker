@@ -7,15 +7,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class BrickBreak extends JFrame {
-
+ 
+    // private data members
+    
+    // ball representation
     private int ballX = 500;
     private int ballY = 500;
     private int ballSpeedX = 4;
     private int ballSpeedY = 4;
 
+    // brick representation
     private int numBricks = 19;
     private int rowBricks = 10;
 
+    // paddle representation
     private int paddleX = 150;
 
     private List<Brick> bricks;
